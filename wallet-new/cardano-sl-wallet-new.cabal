@@ -321,7 +321,9 @@ test-suite wallet-unit-tests
   ghc-options:        -Wall
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
-  other-modules:      Test.Infrastructure.Generator
+  other-modules:      InputSelection.Evaluation
+                      InputSelection.Policy
+                      Test.Infrastructure.Generator
                       Test.Infrastructure.Genesis
                       Test.Spec.Kernel
                       Test.Spec.Models
@@ -331,6 +333,7 @@ test-suite wallet-unit-tests
                       Util.Buildable
                       Util.Buildable.Hspec
                       Util.Buildable.QuickCheck
+                      Util.Histogram
                       Util.Validated
                       UTxO.Bootstrap
                       UTxO.Context
@@ -391,6 +394,7 @@ test-suite wallet-unit-tests
                     , constraints
                     , containers
                     , data-default
+                    , filepath
                     , formatting
                     , hspec
                     , lens
