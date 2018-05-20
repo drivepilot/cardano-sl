@@ -17,13 +17,12 @@ import           Pos.Arbitrary.Block as T
 import           Pos.Binary (Bi)
 import qualified Pos.Block.Base as T
 import qualified Pos.Block.Logic.Integrity as T
-import           Pos.Core (HasConfiguration, GenesisHash (..), genesisHash)
+import           Pos.Core (GenesisHash (..), HasConfiguration, genesisHash)
 import qualified Pos.Core as T
+import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk), SecretKey,
-                             SignTag (..), createPsk, proxySign, sign, toPublic,
-                             protocolMagic)
+                             SignTag (..), createPsk, protocolMagic, proxySign, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Util.Chrono (NewestFirst (..))
 
 import           Test.Pos.Configuration (withDefConfiguration)
 

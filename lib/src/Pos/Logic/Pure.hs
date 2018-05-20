@@ -17,6 +17,7 @@ import           Pos.Core (ApplicationName (..), Block, BlockHeader (..), BlockV
                            SoftwareVersion (..), StakeholderId, TxFeePolicy (..),
                            unsafeCoinPortionFromDouble)
 import           Pos.Core.Block.Main
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..), SlotId (..))
@@ -30,7 +31,6 @@ import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..), Signature (
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Merkle (MerkleRoot (..))
 import           Pos.Txp.Base (emptyTxPayload)
-import           Pos.Util.Chrono (NewestFirst (..), OldestFirst (..))
 
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 
