@@ -1,17 +1,24 @@
-module Test.Pos.Core.TxInWitnessGT
-       ( goldenTestSuite
-       ) where
+module Test.Pos.Core.TxInWitnessGT where
 
 import           Universum as U
 
 import           Cardano.Crypto.Wallet (XSignature, xsignature)
 import           Codec.CBOR.Read (deserialiseFromBytes)
+import           Hedgehog (Gen, Property, discover)
+import           Pos.Arbitrary.Txp (buildProperTx)
 import           Pos.Binary.Class
 import           Pos.Binary.Core()
-import           Pos.Core.Common
-import           Pos.Core.Txp (TxInWitness (..))
+import           Pos.Core.Common (Address (..), Script (..) , IsBootstrapEraAddr (..), Coin (..)
+                                 , makePubKeyAddress)
+import           Pos.Core.Txp (TxInWitness (..), Tx (..), TxIn (..), TxOut (..), TxOutAux (..), TxSig (..)
+                              , TxSigData (..))
+import           Pos.Crypto.Configuration
+import           Pos.Crypto.Hashing (unsafeHash)
 import           Pos.Crypto.Signing  (RedeemPublicKey (..), PublicKey (..), RedeemSignature (..)
-                                     , redeemPkBuild, Signature (..), parseFullPublicKey)
+                                     , redeemPkBuild, Signature (..), parseFullPublicKey, deterministicKeyGen
+                                     , SecretKey (..))
+import           Pos.Crypto.Signing.Signing (createKeypairFromSeed)
+import           Pos.Data.Attributes (mkAttributes)
 import           System.FilePath ((</>))
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.Golden (goldenVsFile)
@@ -21,7 +28,12 @@ import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Base16 as SHD
 import qualified Data.ByteString.Base16.Lazy as LHD
 import qualified Data.Text as ST
+import qualified Hedgehog as H
+import qualified Hedgehog.Gen as Gen
+import qualified Hedgehog.Range as Range
 import qualified Prelude as P (writeFile, show, error)
+
+
 
 
 
@@ -55,7 +67,7 @@ goldenTestSuite =
         ]
 
 --------------- Misc ---------------
-
+--TODO: add fst not null to the third condition, you can remove then remove the first.
 hexFormatFunc :: LB.ByteString -> LB.ByteString
 hexFormatFunc bs
     | LB.length bs <= 32 = bs
@@ -69,6 +81,94 @@ hexFormatFunc bs
 
 goldenPath :: String
 goldenPath = "test/Test/Pos/Core/CoreGoldenFiles/"
+
+---------------------------------------------------
+
+
+--------------- Hedgehog Generators ---------------
+
+-- | The Tx hash in this case is just the hash of the address. Amount in the output set to 0 because it does
+-- not matter for property testing at the moment.
+
+
+testTransaction :: NonEmpty (Tx, TxIn, TxOutAux, TxInWitness)
+testTransaction = buildProperTx pM buildTxInput (identity, identity)
+
+
+buildTxInput :: NonEmpty (Tx, SecretKey, SecretKey, Coin)
+buildTxInput = case U.nonEmpty [(coinbaseTx, fromSecretKey, toSecretKey, amtToSpend)] of
+                   Just correct -> correct
+                   Nothing -> error "buildTxInput list is empty"
+
+amtToSpend :: Coin
+amtToSpend = Coin 100
+
+fromSecretKey :: SecretKey
+fromSecretKey = snd $ deterministicKeyGen "fromfromfromfromfromfromfromfrom"
+
+toSecretKey :: SecretKey
+toSecretKey = snd $ deterministicKeyGen "totototototototototototototototo"
+
+coinbaseTx :: Tx
+coinbaseTx = UnsafeTx txin utxo (mkAttributes ())
+
+
+utxo :: (NonEmpty TxOut)
+utxo = case U.nonEmpty [(TxOut testPubKeyAddress (Coin 0))] of
+                Just output -> output
+                Nothing -> error "UTXO list is empty."
+
+-- | Coinbase tx in Pos.Txp.GenesisUtxo
+
+txin :: (NonEmpty TxIn)
+txin = case U.nonEmpty [(TxInUtxo (unsafeHash testPubKeyAddress) 0)] of
+                Just input -> input
+                Nothing -> error "Input list is empty."
+
+testPubKeyAddress :: Address
+testPubKeyAddress = makePubKeyAddress (IsBootstrapEraAddr True) (fst $ deterministicKeyGen "10101010101010101010101010101010")
+
+-- | Generates `PublicKey` with no password. TODO: Double check this
+
+genPubKey :: Gen PublicKey
+genPubKey = do
+    seed <- Gen.bytes (Range.singleton 32)
+    let (pubk, privk) = createKeypairFromSeed seed
+    return $ PublicKey pubk
+
+genPubKeyAddr :: Gen Address
+genPubKeyAddr = do
+    bool <- Gen.bool
+    seed <- Gen.bytes (Range.singleton 32)
+    let (pubk, privk) = createKeypairFromSeed seed
+    return $ makePubKeyAddress (IsBootstrapEraAddr bool) (PublicKey pubk)
+
+genTxOut :: Gen TxOut
+genTxOut = do
+    bool <- Gen.bool
+    seed <- Gen.bytes (Range.singleton 32)
+    let (pubk, privk) = createKeypairFromSeed seed
+    let address =  makePubKeyAddress (IsBootstrapEraAddr bool) (PublicKey pubk)
+    coin <- Gen.word64 Range.constantBounded
+    return $ TxOut address (Coin coin)
+
+genTxOutList :: Gen (NonEmpty TxOut)
+genTxOutList = Gen.nonEmpty (Range.constant 1 10) genTxOut
+
+{-
+genTxIn :: Gen TxIn
+genTxIn = do
+    -- Generate pubKeyAddr
+    bool <- Gen.bool
+    seed <- Gen.bytes (Range.singleton 32)
+    let (pubk, privk) = createKeypairFromSeed seed
+    let pubKeyAddr = makePubKeyAddress (IsBootstrapEraAddr bool) (PublicKey pubk)
+-}
+
+pM :: ProtocolMagic
+pM = ProtocolMagic {getProtocolMagic = -22673}
+
+
 
 -- | In the functions and values below, s prefix = serialized, ds prefix = deserialized.
 
@@ -94,7 +194,7 @@ testPubKey = "s6xMQZD0xKcBuOw2+OyMUporuSLMLi99mU3A6/9cRBrO/ekTq8oBbS7yf5OgbYg58H
 pubKey :: PublicKey
 pubKey = case (parseFullPublicKey testPubKey) of
             Right pk -> pk
-            Left err -> U.error ((ST.pack "Lulz") `ST.append` err)
+            Left err -> U.error ((ST.pack "Error parsing public key:") `ST.append` err)
 
 pkWitness :: TxInWitness
 pkWitness = PkWitness pubKey (Signature txSig)
@@ -105,7 +205,7 @@ sPkWit = toLazyByteString $ encode pkWitness
 dsPkWitness :: TxInWitness
 dsPkWitness = case (deserialiseFromBytes (decode :: Decoder s TxInWitness) sPkWit) of
                   Right ds -> snd ds
-                  Left dsf -> P.error $ "Deserialization of PkWitness has failed:" ++ P.show dsF
+                  Left dsf -> P.error $ "Deserialization of PkWitness has failed:" ++ P.show dsf
 
 sPkWitTestOutput :: IO ()
 sPkWitTestOutput = LB.writeFile (goldenPath </> "sPkWitness.test")  (hexFormatFunc $ LHD.encode sPkWit)
