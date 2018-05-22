@@ -15,12 +15,12 @@ import           Options.Applicative -- (Parser, execParser, fullDesc, header, h
 -- | Parser for command-line options.
 optionsParser :: Parser CLOptions
 optionsParser = do
-    tlsPubCertPath <- pure "./scripts/tls-files/server.crt"
+    let tlsPubCertPath = "./scripts/tls-files/server.crt"
 --        <- strOption $
 --           long        "tls-pub-cert"
 --        <> metavar     "PUB_CERT"
 --        <> help        "Path to TLS public certificate"
-    tlsPrivKeyPath <- pure "./scripts/tls-files/server.key"
+    let tlsPrivKeyPath = "./scripts/tls-files/server.key"
 --        <- strOption $
 --           long        "tls-priv-key"
 --        <> metavar     "PRIV_KEY"
